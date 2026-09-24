@@ -72,11 +72,6 @@
     #passoDados .campo { margin-bottom: 14px; }
     #passoDados input[type="text"] { width: 100%; border: 1px solid var(--cinza-borda); border-radius: 10px;
                                       padding: 12px 14px; font-size: 15px; }
-    .linha-telefone { display: flex; gap: 8px; align-items: center; }
-    .linha-telefone input { text-align: center; padding: 12px 4px; }
-    #campoDdd { width: 48px; flex-shrink: 0; }
-    #campoNumero { flex-grow: 1; }
-    .separador { color: var(--cinza-claro); font-size: 15px; }
     .aviso-dados { display: flex; gap: 10px; background: #F5F1FB; border-radius: 10px; padding: 12px 14px;
                    align-items: flex-start; margin-top: 4px; }
     .aviso-dados span.texto { font-size: 11px; color: var(--cinza-texto); line-height: 1.5; }
@@ -139,13 +134,8 @@
     </div>
 
     <div class="campo">
-      <label>Telefone</label>
-      <div class="linha-telefone">
-        <span class="separador">(</span>
-        <input type="text" id="campoDdd" inputmode="numeric" maxlength="2" placeholder="45">
-        <span class="separador">)</span>
-        <input type="text" id="campoNumero" inputmode="numeric" maxlength="9" placeholder="90000-0000">
-      </div>
+      <label for="campoTelefone">Telefone</label>
+      <input type="text" id="campoTelefone" inputmode="numeric" maxlength="15" placeholder="(45) 99999-0000">
     </div>
 
     <div class="campo">
@@ -302,24 +292,56 @@ function iniciar() {
     botaoVoltar.addEventListener("click", () => irParaPasso("dados"));
 
     const campoNome = document.getElementById("campoNome");
-    const campoDdd = document.getElementById("campoDdd");
-    const campoNumero = document.getElementById("campoNumero");
+    const campoTelefone = document.getElementById("campoTelefone");
 
-    function atualizarBotaoContinuar() {
-        const podeContinuar = campoNome.value.trim() !== "" && campoDdd.value.trim() !== "" && campoNumero.value.trim() !== "";
-        botaoContinuar.className = podeContinuar ? "habilitado" : "desabilitado";
+    function podeContinuarAgora() {
+        return campoNome.value.trim() !== "" && campoTelefone.value.replace(/\D/g, "") !== "";
     }
-    [campoNome, campoDdd, campoNumero].forEach((el) => el.addEventListener("input", atualizarBotaoContinuar));
+    function atualizarBotaoContinuar() {
+        botaoContinuar.className = podeContinuarAgora() ? "habilitado" : "desabilitado";
+    }
+    // "input" sozinho não pega todo autopreenchimento do celular (autofill
+    // às vezes preenche o campo sem disparar esse evento) — "change"/"blur"
+    // cobrem esse caso, e o botão também confere o valor de VERDADE no
+    // clique (não só a classe visual, que podia ficar desatualizada).
+    [campoNome, campoTelefone].forEach((el) => {
+        ["input", "change", "blur"].forEach((evento) => el.addEventListener(evento, atualizarBotaoContinuar));
+    });
+    atualizarBotaoContinuar();
 
     botaoContinuar.addEventListener("click", () => {
-        if (botaoContinuar.classList.contains("habilitado")) irParaPasso("assinatura");
+        if (podeContinuarAgora()) {
+            irParaPasso("assinatura");
+        } else {
+            atualizarBotaoContinuar();
+        }
+    });
+
+    // Telefone: aceita fixo (10 dígitos: DDD+8) ou celular (11 dígitos:
+    // DDD+9) — mesmo padrão já usado em telas/cadastro_professor.py pra
+    // aceitar os dois formatos sem travar em nenhum.
+    campoTelefone.addEventListener("input", (evento) => {
+        const digitos = evento.target.value.replace(/\D/g, "").slice(0, 11);
+        let formatado = digitos;
+        if (digitos.length > 10) formatado = `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+        else if (digitos.length > 6) formatado = `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
+        else if (digitos.length > 2) formatado = `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+        else if (digitos.length > 0) formatado = `(${digitos}`;
+        evento.target.value = formatado;
+    });
+
+    document.getElementById("campoCpf").addEventListener("input", (evento) => {
+        const digitos = evento.target.value.replace(/\D/g, "").slice(0, 11);
+        let formatado = digitos;
+        if (digitos.length > 9) formatado = `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
+        else if (digitos.length > 6) formatado = `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`;
+        else if (digitos.length > 3) formatado = `${digitos.slice(0, 3)}.${digitos.slice(3)}`;
+        evento.target.value = formatado;
     });
 
     async function enviar(viaPapel) {
         const nome = campoNome.value.trim();
-        const ddd = campoDdd.value.trim();
-        const numero = campoNumero.value.trim();
-        const telefone = ddd || numero ? `(${ddd}) ${numero}` : null;
+        const telefone = campoTelefone.value.trim() || null;
         const cpf = document.getElementById("campoCpf").value.trim() || null;
         const endereco = document.getElementById("campoEndereco").value.trim() || null;
         const assinaturaBase64 = !viaPapel && temAssinatura ? canvas.toDataURL("image/png") : null;
