@@ -217,6 +217,34 @@ function iniciar() {
     let temAssinatura = false;
     let desenhando = false;
     let ultimoPonto = null;
+    let caixaTraco = null;
+
+    function registrarPontoNaCaixa(ponto) {
+        if (!caixaTraco) {
+            caixaTraco = { minX: ponto.x, minY: ponto.y, maxX: ponto.x, maxY: ponto.y };
+            return;
+        }
+        caixaTraco.minX = Math.min(caixaTraco.minX, ponto.x);
+        caixaTraco.minY = Math.min(caixaTraco.minY, ponto.y);
+        caixaTraco.maxX = Math.max(caixaTraco.maxX, ponto.x);
+        caixaTraco.maxY = Math.max(caixaTraco.maxY, ponto.y);
+    }
+
+    function obterAssinaturaRecortada() {
+        if (!caixaTraco) return null;
+        const dpr = window.devicePixelRatio || 1;
+        const margem = 12;
+        const x = Math.max(0, caixaTraco.minX - margem) * dpr;
+        const y = Math.max(0, caixaTraco.minY - margem) * dpr;
+        const largura = Math.min(canvas.width - x, (caixaTraco.maxX - caixaTraco.minX + margem * 2) * dpr);
+        const altura = Math.min(canvas.height - y, (caixaTraco.maxY - caixaTraco.minY + margem * 2) * dpr);
+        if (largura <= 0 || altura <= 0) return canvas.toDataURL("image/png");
+        const canvasRecortado = document.createElement("canvas");
+        canvasRecortado.width = largura;
+        canvasRecortado.height = altura;
+        canvasRecortado.getContext("2d").drawImage(canvas, x, y, largura, altura, 0, 0, largura, altura);
+        return canvasRecortado.toDataURL("image/png");
+    }
 
     function ajustarTamanhoCanvas() {
         const rect = canvas.getBoundingClientRect();
@@ -239,6 +267,7 @@ function iniciar() {
         evento.preventDefault();
         desenhando = true;
         ultimoPonto = posicaoRelativa(evento);
+        registrarPontoNaCaixa(ultimoPonto);
         if (!temAssinatura) {
             temAssinatura = true;
             rotuloTocarAssinar.style.display = "none";
@@ -254,6 +283,7 @@ function iniciar() {
         contexto.lineTo(ponto.x, ponto.y);
         contexto.stroke();
         ultimoPonto = ponto;
+        registrarPontoNaCaixa(ponto);
     }
 
     function terminarTraco() {
@@ -270,6 +300,7 @@ function iniciar() {
     document.getElementById("botaoLimpar").addEventListener("click", () => {
         contexto.clearRect(0, 0, canvas.width, canvas.height);
         temAssinatura = false;
+        caixaTraco = null;
         rotuloTocarAssinar.style.display = "block";
     });
 
@@ -344,7 +375,7 @@ function iniciar() {
         const telefone = campoTelefone.value.trim() || null;
         const cpf = document.getElementById("campoCpf").value.trim() || null;
         const endereco = document.getElementById("campoEndereco").value.trim() || null;
-        const assinaturaBase64 = !viaPapel && temAssinatura ? canvas.toDataURL("image/png") : null;
+        const assinaturaBase64 = !viaPapel && temAssinatura ? obterAssinaturaRecortada() : null;
 
         const corpo = {
             nome, telefone, cpf, endereco,
