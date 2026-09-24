@@ -25,16 +25,20 @@
      vw_relatorio_publico_controle e libera leitura pública dela).
   2. Preencha SUPABASE_URL e SUPABASE_ANON_KEY abaixo (Painel do
      Supabase → Project Settings → API — "Project URL" e "anon public"
-     key; NUNCA use a "service_role" key aqui, essa é secreta).
-  3. No painel do Supabase → Storage → crie um bucket novo marcado como
-     "Public bucket" (ex.: "relatorios").
-  4. Suba este arquivo HTML (já com os valores do passo 2 preenchidos)
-     nesse bucket — arrasta e solta no próprio painel.
-  5. O arquivo ganha uma URL pública fixa (algo como
-     https://<ref-do-projeto>.supabase.co/storage/v1/object/public/relatorios/documento_controle_publico.html)
-     — esse é o link pra compartilhar. Ele nunca muda, mesmo que os
-     dados do relatório mudem — não precisa subir de novo depois de
-     cada gravação/link novo.
+     key; NUNCA use a "service_role"/"secret" key aqui, essa é secreta).
+  3. Hospede este arquivo HTML (já com os valores do passo 2
+     preenchidos) num lugar que sirva arquivos .html de verdade —
+     TESTADO EM 2026-09-24: o Supabase Storage NÃO funciona pra isso,
+     ele força Content-Type: text/plain em qualquer .html de bucket
+     público de propósito (proteção contra phishing/XSS sob o domínio
+     supabase.co) — não tem como contornar via API, é bloqueado no
+     servidor. Use GitHub Pages: crie um repositório PÚBLICO novo no
+     GitHub (github.com/new), suba este arquivo (+ formulario_convidado.html)
+     por "uploading an existing file", e em Settings → Pages ative
+     "Deploy from a branch" (main, / root). Fica em
+     https://<seu-usuário>.github.io/<repositório>/documento_controle_publico.html.
+  4. Esse link nunca muda, mesmo que os dados do relatório mudem — não
+     precisa subir de novo depois de cada gravação/link novo.
 -->
 <!DOCTYPE html>
 <html lang="pt-BR">

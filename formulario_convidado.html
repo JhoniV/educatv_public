@@ -24,12 +24,17 @@
   volta por este formulário.
 
   ============================================================
-  COMO PUBLICAR (mesmo bucket público do outro arquivo)
+  COMO PUBLICAR (mesmo host do outro arquivo — ver o dele)
   ============================================================
   1. Rode os blocos "Servidor web público, Ideia 2" de
      banco/atualizar_supabase.sql no SQL Editor do Supabase.
   2. Preencha SUPABASE_URL e SUPABASE_ANON_KEY abaixo.
-  3. Suba este arquivo no MESMO bucket público (Storage) do outro relatório.
+  3. Hospede este arquivo (junto com documento_controle_publico.html)
+     em GitHub Pages — TESTADO EM 2026-09-24: Supabase Storage NÃO
+     serve .html corretamente (força text/plain de propósito, proteção
+     contra phishing/XSS — sem contorno via API). Ver o comentário
+     completo em documento_controle_publico.html pro passo a passo do
+     GitHub Pages.
   4. Copie a URL pública final e cole em Configurações → Servidor web
      público → "URL do formulário do convidado".
 -->
@@ -67,12 +72,10 @@
     #passoDados .campo { margin-bottom: 14px; }
     #passoDados input[type="text"] { width: 100%; border: 1px solid var(--cinza-borda); border-radius: 10px;
                                       padding: 12px 14px; font-size: 15px; }
-    .linha-telefone, .linha-cpf { display: flex; gap: 8px; align-items: center; }
-    .linha-telefone input, .linha-cpf input { text-align: center; padding: 12px 4px; }
+    .linha-telefone { display: flex; gap: 8px; align-items: center; }
+    .linha-telefone input { text-align: center; padding: 12px 4px; }
     #campoDdd { width: 48px; flex-shrink: 0; }
     #campoNumero { flex-grow: 1; }
-    .cpf-caixa3 { width: 0; flex-grow: 1; }
-    #campoCpf4 { width: 44px; flex-shrink: 0; }
     .separador { color: var(--cinza-claro); font-size: 15px; }
     .aviso-dados { display: flex; gap: 10px; background: #F5F1FB; border-radius: 10px; padding: 12px 14px;
                    align-items: flex-start; margin-top: 4px; }
@@ -146,16 +149,8 @@
     </div>
 
     <div class="campo">
-      <label>CPF (opcional)</label>
-      <div class="linha-cpf">
-        <input type="text" class="cpf-caixa3" id="campoCpf1" inputmode="numeric" maxlength="3" placeholder="000">
-        <span class="separador">.</span>
-        <input type="text" class="cpf-caixa3" id="campoCpf2" inputmode="numeric" maxlength="3" placeholder="000">
-        <span class="separador">.</span>
-        <input type="text" class="cpf-caixa3" id="campoCpf3" inputmode="numeric" maxlength="3" placeholder="000">
-        <span class="separador">-</span>
-        <input type="text" id="campoCpf4" inputmode="numeric" maxlength="2" placeholder="00">
-      </div>
+      <label for="campoCpf">CPF (opcional)</label>
+      <input type="text" id="campoCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
     </div>
 
     <div class="campo">
@@ -325,8 +320,7 @@ function iniciar() {
         const ddd = campoDdd.value.trim();
         const numero = campoNumero.value.trim();
         const telefone = ddd || numero ? `(${ddd}) ${numero}` : null;
-        const cpfPartes = ["campoCpf1", "campoCpf2", "campoCpf3", "campoCpf4"].map((id) => document.getElementById(id).value.trim());
-        const cpf = cpfPartes.some((p) => p) ? `${cpfPartes[0]}.${cpfPartes[1]}.${cpfPartes[2]}-${cpfPartes[3]}` : null;
+        const cpf = document.getElementById("campoCpf").value.trim() || null;
         const endereco = document.getElementById("campoEndereco").value.trim() || null;
         const assinaturaBase64 = !viaPapel && temAssinatura ? canvas.toDataURL("image/png") : null;
 
