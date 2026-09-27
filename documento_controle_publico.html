@@ -73,11 +73,22 @@
     .aula-vazia { font-style: italic; color: #666666; }
     .aviso-carregando, .aviso-erro, .aviso-vazio { text-align: center; color: #555555; margin-top: 48px; }
     .aviso-erro { color: #C0392B; }
+    .linha-finalizacao { font-size: 12.5px; color: #555555; margin: 4px 0 12px; }
+    details.historico-links { font-size: 12.5px; color: #555555; margin: 0 0 12px; }
+    details.historico-links summary { cursor: pointer; width: fit-content; color: #0563C1; }
+    details.historico-links ul { margin: 6px 0 0; padding-left: 20px; }
+    .campo-busca { display: block; width: 100%; max-width: 420px; margin: 0 auto 24px;
+                   padding: 10px 14px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px;
+                   box-sizing: border-box; }
+    .aviso-busca-vazia { text-align: center; color: #555555; margin-top: 24px; display: none; }
 </style>
 </head>
 <body>
 <h1>Documento de Controle — eDUCATV</h1>
 <p class="gerado-em" id="rotuloAtualizadoEm">Carregando...</p>
+<input type="text" id="campoBusca" class="campo-busca"
+       placeholder="Buscar por Curso, Módulo, Componente ou Professor..." oninput="filtrarBusca()">
+<p class="aviso-busca-vazia" id="avisoBuscaVazia">Nenhum resultado para essa busca.</p>
 <div id="corpo"></div>
 
 <script>
@@ -104,6 +115,13 @@ function formatarDataBr(valorIso) {
     if (!valorIso) return "Não definida";
     const [ano, mes, dia] = valorIso.split("-");
     return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataHoraBr(valorTexto) {
+    if (!valorTexto) return null;
+    const [dataParte, horaParte] = valorTexto.split(" ");
+    const dataBr = formatarDataBr(dataParte);
+    return horaParte ? `${dataBr} às ${horaParte.slice(0, 5)}` : dataBr;
 }
 
 function removerPrefixoAula(descricao) {
@@ -137,6 +155,27 @@ function blocoComponenteHtml(linha) {
     let textoComponente = linha.componente_nome;
     if (linha.carga_horaria) textoComponente = `CH${linha.carga_horaria} - ${textoComponente}`;
 
+    // "Quem finalizou e quando" (a pedido do usuário) — só existe pra
+    // finalizações feitas DEPOIS desta coluna existir; Componentes já
+    // finalizadas antes disso mostram o aviso neutro abaixo.
+    const finalizacaoHtml = linha.finalizado_por_nome
+        ? `<p class="linha-finalizacao">Finalizado por ${escaparHtml(linha.finalizado_por_nome)} em ${escaparHtml(formatarDataHoraBr(linha.finalizado_em))}</p>`
+        : '<p class="linha-finalizacao">Finalização não registrada.</p>';
+
+    // Histórico só de links/reaberturas, recolhido por padrão (a pedido
+    // do usuário: o documento fica enxuto, o detalhe só se pedir).
+    // A coluna `historico` só existe depois da migração de 2026-09-27.
+    const historico = linha.historico || [];
+    const historicoHtml = historico.length === 0 ? "" :
+        '<details class="historico-links"><summary>Histórico</summary><ul>' +
+        historico.map(e => `<li>${escaparHtml(formatarDataHoraBr(e.em))} — ${escaparHtml(e.acao)}${e.por ? " (" + escaparHtml(e.por) + ")" : ""}</li>`).join("") +
+        "</ul></details>";
+
+    const textoBusca = [
+        linha.curso_nome, linha.curso_sigla, linha.modulo_nome,
+        linha.componente_nome, linha.professor_nome,
+    ].filter(Boolean).join(" ").toLowerCase();
+
     let blocoAulas;
     if (links.length === 0) {
         blocoAulas = '<p class="aula-vazia">(Nenhuma aula/link cadastrado ainda para esta Componente.)</p>';
@@ -156,7 +195,7 @@ function blocoComponenteHtml(linha) {
     }
 
     return `
-    <div class="bloco-componente">
+    <div class="bloco-componente" data-busca="${escaparHtml(textoBusca)}">
       <table class="quadro-cabecalho" style="background:#${cor};">
         <tr>
           <td style="width:33%;">
@@ -171,6 +210,8 @@ function blocoComponenteHtml(linha) {
       </table>
       <p class="destaque-datas">Recebido em ${formatarDataBr(linha.data_agendamento_gravacao)}
         e Enviado em: ${formatarDataBr(linha.data_links_completos)}</p>
+      ${finalizacaoHtml}
+      ${historicoHtml}
       ${blocoAulas}
     </div>
     `;
@@ -203,22 +244,31 @@ async function carregar() {
         const partesSumario = [];
         const partesConteudo = [];
         let agendaAnterior = null;
+        let secaoAberta = false;
         for (const linha of linhas) {
             if (linha.agenda_id !== agendaAnterior) {
+                if (secaoAberta) partesConteudo.push("</div>");
                 const ancora = `oferta-${linha.agenda_id}`;
                 const tituloOferta = `${linha.curso_nome} — ${linha.modulo_nome} (Início ${formatarDataBr(linha.data_inicio)})`;
-                partesConteudo.push(`<h2 class="oferta" id="${ancora}">${escaparHtml(tituloOferta)}</h2>`);
+                // Agrupada numa <div class="secao-oferta"> (a pedido do
+                // usuário, campo de busca) — sem isto, não teria como
+                // esconder o título da oferta inteira quando NENHUMA
+                // Componente dela sobrevive ao filtro de busca.
+                partesConteudo.push(`<div class="secao-oferta"><h2 class="oferta" id="${ancora}">${escaparHtml(tituloOferta)}</h2>`);
                 partesSumario.push(`<li><a href="#${ancora}">${escaparHtml(tituloOferta)}</a></li>`);
                 agendaAnterior = linha.agenda_id;
+                secaoAberta = true;
             }
             partesConteudo.push(blocoComponenteHtml(linha));
         }
+        if (secaoAberta) partesConteudo.push("</div>");
 
         const sumarioHtml = usarSumario
             ? `<div class="sumario"><h2>Sumário</h2><ul>${partesSumario.join("")}</ul></div>`
             : "";
 
         elementoCorpo.innerHTML = sumarioHtml + partesConteudo.join("");
+        filtrarBusca();
     } catch (erro) {
         elementoRotulo.textContent = "";
         elementoCorpo.innerHTML =
@@ -226,6 +276,25 @@ async function carregar() {
             "Tente novamente em alguns instantes.</p>";
         console.error("Erro ao carregar o Documento de Controle público:", erro);
     }
+}
+
+function filtrarBusca() {
+    const termo = (document.getElementById("campoBusca").value || "").trim().toLowerCase();
+    const blocos = document.querySelectorAll(".bloco-componente");
+    let algumVisivel = false;
+    blocos.forEach((bloco) => {
+        const corresponde = !termo || (bloco.dataset.busca || "").includes(termo);
+        bloco.style.display = corresponde ? "" : "none";
+        if (corresponde) algumVisivel = true;
+    });
+    // Oferta inteira some se NENHUMA Componente dela sobrou no filtro.
+    document.querySelectorAll(".secao-oferta").forEach((secao) => {
+        const temVisivel = Array.from(secao.querySelectorAll(".bloco-componente"))
+            .some((bloco) => bloco.style.display !== "none");
+        secao.style.display = temVisivel ? "" : "none";
+    });
+    document.getElementById("avisoBuscaVazia").style.display =
+        (termo && !algumVisivel) ? "block" : "none";
 }
 
 carregar();
